@@ -1,10 +1,12 @@
+#!/usr/bin/env python
 import pygame
 from pygame.locals import *
 pygame.init()
 
 Font = pygame.font.SysFont("Arial", 15)
 
-size = (1024, 1024)
+size = (800, 800)
+cellSize = 8
 screen = pygame.display.set_mode(size)
 
 def drawText(pos, text, color=(255,255,255), background=None):
@@ -102,7 +104,7 @@ class GameGrid:
     for row in self.cells:
       x = 0
       for cell in row:
-        surface.fill(cell.getColor(), (x * 16, y * 16, 15, 15))
+        surface.fill(cell.getColor(), (x * cellSize, y * cellSize, cellSize-1, cellSize-1))
         x = x + 1
       y = y + 1
       
@@ -167,7 +169,7 @@ class GameGrid:
 
   def renderFoam(self, surface):
     for update in self.updates:
-      pygame.draw.rect(surface, (255,0,0), (update[0] * 16, update[1] * 16, 16, 16), 1)
+      pygame.draw.rect(surface, (255,0,0), (update[0] * cellSize, update[1] * cellSize, cellSize, cellSize), 1)
 
 def processEvent(gg, event):
   global running
@@ -181,8 +183,8 @@ def processEvent(gg, event):
       gg.updateGas();
           
   elif event.type == MOUSEBUTTONDOWN:
-    x = event.pos[0]/16
-    y = event.pos[1]/16
+    x = event.pos[0]/cellSize
+    y = event.pos[1]/cellSize
     cell = gg[x,y]
     if event.button == 1:
       if isinstance(cell, HardCell):
@@ -208,8 +210,8 @@ def updateData(gg):
   global screen
   global clock
   pos = pygame.mouse.get_pos()
-  cellx = pos[0] / 16
-  celly = pos[1] / 16
+  cellx = pos[0] / cellSize
+  celly = pos[1] / cellSize
   
   cell = gg[cellx, celly]
   
@@ -229,10 +231,10 @@ def updateData(gg):
       messages += ["Sources: " + ",".join([str(source) for source in group.sources])]
       
       for dest in group.dests:
-        pygame.draw.rect(screen, (255,255,255), (dest[0] * 16, dest[1] * 16, 16, 16), 1)
+        pygame.draw.rect(screen, (255,255,255), (dest[0] * cellSize, dest[1] * cellSize, cellSize, cellSize), 1)
         
       for source in group.sources:
-        screen.fill((0,0,255), (source[0] * 16, source[1] * 16, 15, 15))
+        screen.fill((0,0,255), (source[0] * cellSize, source[1] * cellSize, cellSize-1, cellSize-1))
             
   y = 5
   for message in messages:
@@ -245,7 +247,7 @@ def main():
   global clock
   clock = pygame.time.Clock()
 
-  gg = GameGrid(size[0]/16, size[1]/16)
+  gg = GameGrid(size[0]/cellSize, size[1]/cellSize)
   while running:
     processEvents(gg)
     screen.fill((0,0,0))
