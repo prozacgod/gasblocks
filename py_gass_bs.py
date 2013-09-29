@@ -3,7 +3,7 @@ import pygame
 from pygame.locals import *
 pygame.init()
 
-Font = pygame.font.SysFont("Arial", 15)
+Font = pygame.font.SysFont("monospace", 15)
 
 size = (800, 800)
 screen = pygame.display.set_mode(size)
