@@ -1,12 +1,13 @@
 #!/usr/bin/env python
+import random
 import pygame
 from pygame.locals import *
 pygame.init()
 
 Font = pygame.font.SysFont("Arial", 15)
 
-size = (800, 800)
-cellSize = 8
+size = (1024,1024)
+cellSize = 4
 screen = pygame.display.set_mode(size)
 
 def drawText(pos, text, color=(255,255,255), background=None):
@@ -25,7 +26,13 @@ class GasCell:
     self.pressure = 0
 
   def getColor(self):
-    return (255,255,0)
+    p = 128 + self.pressure/2 
+    if p < 0:
+      p = 10
+      
+    if p > 255:
+      p = 255
+    return (p, p, 0)
 
 class HardCell:
   def __init__(self):
@@ -163,6 +170,33 @@ class GameGrid:
     if (len(groups) > 0):
       print "group len 0", len(groups[0].dests)
 
+    for group in groups:
+      if len(group.sources) == 0:
+        continue
+
+      if len(group.dests) == 0:
+        continue
+
+        
+      groupPressure = 0
+      for source in group.sources:
+        sourceCell = self[source[0], source[1]]
+        groupPressure += sourceCell.pressure
+        sourceCell.pressure = 0
+        
+      groupPressure = groupPressure - len(group.sources)
+      avgPressure = groupPressure / len(group.dests)
+      remainPressure = groupPressure % len(group.dests)
+      for dest in group.dests:
+        destCell = GasCell()
+        self[dest[0], dest[1]] = destCell
+        destCell.pressure = avgPressure
+        
+      for i in range(remainPressure):
+        dest = random.choice(group.dests)
+        destCell = self[dest[0], dest[1]]
+        destCell.pressure += 1
+           
     self.groups = groups      
     self.updates = updates
   
@@ -215,9 +249,13 @@ def updateData(gg):
   
   cell = gg[cellx, celly]
   
+  infoStr = ""
+  if isinstance(cell, GasCell):
+    infoStr = "Pressure: " + str(cell.pressure)
+  
   messages = [
-    "Cell: " + cell.__class__.__name__,
-    "FPS: " + str(int(clock.get_fps()))
+    "FPS: " + str(int(clock.get_fps())),
+    "Cell: " + cell.__class__.__name__ + " " + infoStr
   ]
 
   if (cellx, celly) in gg.updates:
@@ -225,16 +263,17 @@ def updateData(gg):
     for source in gg.updates[(cellx, celly)]:
       messages += [str(source)]
 
-  for group in gg.groups:
-    if group.containsDest(cellx, celly):
-      messages += ["This is a destination group"]
-      messages += ["Sources: " + ",".join([str(source) for source in group.sources])]
-      
-      for dest in group.dests:
-        pygame.draw.rect(screen, (255,255,255), (dest[0] * cellSize, dest[1] * cellSize, cellSize, cellSize), 1)
+  if False:
+    for group in gg.groups:
+      if group.containsDest(cellx, celly):
+        messages += ["This is a destination group"]
+        messages += ["Sources: " + ",".join([str(source) for source in group.sources])]
         
-      for source in group.sources:
-        screen.fill((0,0,255), (source[0] * cellSize, source[1] * cellSize, cellSize-1, cellSize-1))
+        for dest in group.dests:
+          pygame.draw.rect(screen, (255,255,255), (dest[0] * cellSize, dest[1] * cellSize, cellSize, cellSize), 1)
+          
+        for source in group.sources:
+          screen.fill((0,0,255), (source[0] * cellSize, source[1] * cellSize, cellSize-1, cellSize-1))
             
   y = 5
   for message in messages:
@@ -253,7 +292,7 @@ def main():
     screen.fill((0,0,0))
 
     gg.render(screen)
-    gg.renderFoam(screen)
+    #gg.renderFoam(screen)
     updateData(gg)
      
     pygame.display.flip();
