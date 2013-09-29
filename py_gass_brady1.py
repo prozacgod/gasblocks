@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import pygame
+import copy
+import random
 from pygame.locals import *
 pygame.init()
 
@@ -7,6 +9,9 @@ Font = pygame.font.SysFont("monospace", 15)
 
 size = (800, 800)
 cellSize = 8
+xmax = size[0]/cellSize
+ymax = size[1]/cellSize
+
 screen = pygame.display.set_mode(size)
 
 def drawText(pos, text, color=(255,255,255), background=None):
@@ -24,7 +29,15 @@ class GasCell:
     self.p = pres
 
   def getColor(self):
-    return (255,255,0)
+    if self.t == 0:
+	return (0,0,0)
+    if self.t == 1:
+        return (0,255,0)
+    colv = self.p / 8
+    colv = colv % 360
+    colp = pygame.Color(0,0,0,0)
+    colp.hsva = (colv,99,50 if self.t==3 else 99,99)
+    return colp
 
 class HardCell:
   def __init__(self):
@@ -41,9 +54,86 @@ class EmptyCell:
     return (50,50,50)
 
 
+#gas-air interface
+def baif(x,y,arr):
+	if x < 1 or y < 1 or x > xmax-1 or y > ymax-1:
+		return
+	if not arr[x][y].t == 2:
+		return
+	if arr[x-1][y].t == 0:
+		return True
+	if arr[x+1][y].t == 0:
+		return True
+	if arr[x][y+1].t == 0:
+		return True
+	if arr[x][y-1].t == 0:
+		return True
+
+#Solid-gas interface
+def bgif(x,y,arr):
+	if x < 1 or y < 1 or x > xmax-1 or y > ymax-1:
+		return
+	if not arr[x][y].t == 2:
+		return
+	if arr[x-1][y].t == 3:
+		return True
+	if arr[x+1][y].t == 3:
+		return True
+	if arr[x][y+1].t == 3:
+		return True
+	if arr[x][y-1].t == 3:
+		return True
+
+def ccfoam(x,y,arr,arrnew):
+	if x < 1 or y < 1 or x > xmax-1 or y > ymax-1:
+		return
+	gv = arr[x][y].p
+	if not arr[x][y].t==2:
+		return
+	if gv < 2:
+		arrnew[x][y].t=3
+		#arr[x][y].t=3
+		return
+	arrnew[x][y].p=arr[x][y].p+random.randint(gv/3,gv/2)
+	validpos = []
+	#isfreeze=False
+	
+	if arr[x-1][y].t == 0 or arr[x-1][y].t == 2:
+		validpos.append((x-1,y))
+	if arr[x+1][y].t == 0 or arr[x+1][y].t == 2:
+		validpos.append((x+1,y))
+	if arr[x][y+1].t == 0 or arr[x][y+1].t == 2:
+		validpos.append((x,y+1))
+	if arr[x][y-1].t == 0 or arr[x][y-1].t == 2:
+		validpos.append((x,y-1))
+	
+	print validpos
+	if len(validpos) == 0:
+		return
+	dv = int((gv/len(validpos))*(len(validpos)/2))
+	for bl in validpos:
+		arrnew[bl[0]][bl[1]].p = arr[bl[0]][bl[1]].p + dv - random.randint(0,dv/4)
+		arrnew[bl[0]][bl[1]].t=2
+
+	
+def cycle(arr):
+	arrnew = copy.deepcopy(arr)
+	for x in range(len(arr)):
+		for y in range(len(arr[x])):
+			if(baif(x,y,arr)):
+				print "blockair if "+str((x,y))
+				ccfoam(x,y,arr,arrnew)
+			elif(bgif(x,y,arr)):
+				print "blockgas if "+str((x,y))
+				arrnew[x][y].t=3
+				#arr[x][y].t=3
+
+	arr = copy.deepcopy(arrnew)
+	return arr
+
 class GameGrid:
   def __init__(self, w, h):
-    self.cells = [[EmptyCell() for x in range(w)] for y in range(h)]
+    self.cells = [[GasCell(0,0) for x in range(w)] for y in range(h)]
       
   def __getitem__(self, key):
     if (key[0] < 0):
@@ -74,9 +164,24 @@ class GameGrid:
       y = y + 1
 
   def update(self):
-    #update self.cells here
+    self.cells = cycle(self.cells)
     pass
       
+def subdes(x,y,arr):
+	if x < 1 or y < 1 or x > xmax-1 or y > ymax-1:
+		return
+	if arr[x,y].t==3:
+		arr[x,y].t=2
+		arr[x,y].p=(arr[x,y].p+5)*32
+
+def destroy(x,y,arr):
+	if x < 1 or y < 1 or x > xmax-1 or y > ymax-1:
+		return
+	arr[x,y].t=0
+	for a in range(x-2,x+2):
+		for b in range(y-2,y+2):
+			subdes(a,b,arr)
+
 def processEvent(gg, event):
   global running
   if event.type == QUIT:
@@ -87,21 +192,20 @@ def processEvent(gg, event):
       running = False
     if event.key == K_SPACE:
       gg.update();
-          
+    if event.key == K_x:
+      x = pygame.mouse.get_pos()[0]/cellSize
+      y = pygame.mouse.get_pos()[1]/cellSize
+      destroy(x,y,gg)
+    if event.key == K_r:
+      gg.cells = [[GasCell(0,0) for x in range(xmax)] for y in range(ymax)]
   elif event.type == MOUSEBUTTONDOWN:
     x = event.pos[0]/cellSize
     y = event.pos[1]/cellSize
     cell = gg[x,y]
     if event.button == 1:
-      if isinstance(cell, HardCell):
-        gg[x,y] = EmptyCell()
-      if isinstance(cell, EmptyCell):
-        gg[x,y] = HardCell()
+      gg[x,y].t=1
     elif event.button == 3:
-      cell = GasCell()
-      gg[x,y] = cell
-      cell.pressure = 256;
-      cell.heat = 128;
+      gg[x,y] = GasCell(2,5000)
       
   #elif event.type == MOUSEBUTTONUP:
 
