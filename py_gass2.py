@@ -165,19 +165,20 @@ class GameGrid:
     
     if not gasg in groups:
       groups += [gasg]
-
+      
+    #now that the groups have been determined...
     print "groups: ", len(groups)
-    if (len(groups) > 0):
-      print "group len 0", len(groups[0].dests)
 
+    #we need to distribute the gas "pressure" to all the targets
     for group in groups:
       if len(group.sources) == 0:
         continue
 
       if len(group.dests) == 0:
         continue
-
         
+      #Calculate the pressure being contributed to this group        
+
       groupPressure = 0
       for source in group.sources:
         sourceCell = self[source[0], source[1]]
@@ -185,15 +186,34 @@ class GameGrid:
         sourceCell.pressure = 0
         
       groupPressure = groupPressure - len(group.sources)
+
+      #we need to "regroup" into "dest & source" distinct array to get a count
+      #TODO: lookup 'sets' instead of dict
+      dest_sources = {}
+      for dest in group.dests:
+        for source in updates[dest]:
+          dest_sources[dest + source] = True
+      
       avgPressure = groupPressure / len(group.dests)
       remainPressure = groupPressure % len(group.dests)
-      for dest in group.dests:
+
+      print "total cells that need pressure", len(dest_sources)
+      print "group pressure", groupPressure
+      print "avg Pressure", avgPressure
+      print "remaining Pressure", remainPressure
+      
+      for ds in dest_sources.keys():
+        print "cell sources ", updates[ds[0], ds[1]]
         destCell = GasCell()
-        self[dest[0], dest[1]] = destCell
-        destCell.pressure = avgPressure
+        if isinstance(self[ds[0], ds[1]], GasCell):
+          destCell = self[ds[0], ds[1]]
+        else:
+          self[ds[0], ds[1]] = destCell
+          
+        destCell.pressure += avgPressure
         
       for i in range(remainPressure):
-        dest = random.choice(group.dests)
+        dest = random.choice(dest_sources.keys())
         destCell = self[dest[0], dest[1]]
         destCell.pressure += 1
            
@@ -263,7 +283,7 @@ def updateData(gg):
     for source in gg.updates[(cellx, celly)]:
       messages += [str(source)]
 
-  if False:
+  if True:
     for group in gg.groups:
       if group.containsDest(cellx, celly):
         messages += ["This is a destination group"]
@@ -292,7 +312,7 @@ def main():
     screen.fill((0,0,0))
 
     gg.render(screen)
-    #gg.renderFoam(screen)
+    gg.renderFoam(screen)
     updateData(gg)
      
     pygame.display.flip();
